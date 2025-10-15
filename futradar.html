@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>FutRadar — Mobile</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="color-scheme" content="dark">
+  <style>
+    :root{
+      --green: #10b981; /* emerald-500 */
+      --green-600: #059669;
+      --bg-deep: #0a0f14;
+      --border: rgba(148,163,184,.25);
+    }
+    /* Fundo preto ao redor simulando bordas do celular */
+    html, body { height: 100%; }
+    body{ background:#000; margin:0; }
+    #frame{ min-height:100%; display:flex; justify-content:center; }
+
+    /* "Tela" do app centralizada */
+    .app-shell{
+      width:100%;
+      max-width:430px;   /* largura típica de celular grande */
+      min-height:100vh;  /* ocupa a altura toda */
+      background: radial-gradient(900px 550px at 25% -10%, rgba(16,185,129,.12), transparent), var(--bg-deep);
+      color:#e5e7eb;
+      display:flex; flex-direction:column;
+    }
+
+    /* Inputs custom */
+    .input{ width:100%; background: rgba(16,185,129,.08); border:1px solid rgba(16,185,129,.35); border-radius:20px; padding:12px 14px; color:#e5fff4; caret-color: var(--green); transition: box-shadow .2s, border-color .2s, background .2s; }
+    .input::placeholder{ color: rgba(167,243,208,.85); }
+    .input:focus{ outline:none; border-color: var(--green); box-shadow: 0 0 0 2px rgba(16,185,129,.35); background: rgba(16,185,129,.12); }
+    textarea.input{ resize: vertical; }
+
+    /* Botões */
+    .btn{ font-weight:600; padding:10px 14px; border-radius:16px; font-size:.95rem; display:inline-flex; align-items:center; justify-content:center; gap:.5rem; cursor:pointer; border:1px solid transparent; }
+    .btn-primary{ background: var(--green); color:#06281f; border-color: rgba(16,185,129,.6); box-shadow: 0 6px 16px rgba(16,185,129,.18); }
+    .btn-primary:hover{ background: var(--green-600); }
+    .btn-secondary{ background: rgba(255,255,255,.06); color:#e5e7eb; border-color: var(--border); }
+    .btn-secondary:hover{ background: rgba(255,255,255,.1); }
+    .btn-danger{ background:#dc2626; color:#fff; }
+
+    .label{ display:block; color:#d1d5db; margin-bottom:.35rem; font-weight:500; }
+
+    .section{ background: rgba(255,255,255,.03); border:1px solid var(--border); border-radius:22px; padding:16px; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+    .card{ background:#0f172a; border:1px solid var(--border); border-radius:20px; padding:14px; box-shadow: 0 8px 22px rgba(0,0,0,.35); }
+    .card + .card{ margin-top:12px; }
+    .card-actions{ margin-top:14px; padding-top:12px; border-top:1px dashed var(--border); display:grid; grid-template-columns:1fr 1fr; gap:.5rem; }
+
+    .badge{ display:inline-flex; align-items:center; padding:2px 8px; border-radius:999px; font-size:.72rem; font-weight:700; color:#a7f3d0; background: rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.28); }
+
+    .chip{ display:inline-flex; align-items:center; justify-content:center; padding:8px 12px; border-radius:999px; background: rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.28); color:#a7f3d0; font-size:.85rem; }
+    .chip:hover{ background: rgba(16,185,129,.18); }
+
+    /* Bottom nav presa ao "vidro" centralizado */
+    .nav-fixed{ position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:430px; }
+
+    /* Cabeçalho retrátil dos filtros */
+    .filters-header{ display:flex; align-items:center; justify-content:space-between; gap:.75rem; }
+    .filters-header h3{ margin:0; font-size:1.25rem; font-weight:800; }
+    .chev{ transition: transform .2s ease; }
+    .chev.rotate{ transform: rotate(180deg); }
+  </style>
+</head>
+<body class="text-gray-100 antialiased">
+  <div id="frame">
+    <div id="app" class="app-shell"></div>
+  </div>
+
+  <script>
+    // ========= ÍCONES =========
+    const Icon = {
+      logo:(cls="h-7 w-7")=>`<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M7 13c3-2 7-2 10 0"/><path d="M9 9l3 3 3-3"/></svg>`,
+      user:(cls="h-6 w-6")=>`<svg class="${cls}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`,
+      eye:(cls="h-6 w-6")=>`<svg class="${cls}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>`,
+      ball:(cls="h-6 w-6")=>`<svg class="${cls}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="m12 12-3.21 4.36a2 2 0 0 0 3.21 2.64v0a2 2 0 0 0 3.21-2.64L12 12Z"></path></svg>`,
+      chat:(cls="h-6 w-6")=>`<svg class="${cls}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`,
+      plus:(cls="h-5 w-5")=>`<svg class="${cls}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v8M8 12h8"/></svg>`,
+      send:(cls="h-5 w-5")=>`<svg class="${cls}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m22 2-11 11"/><path d="M22 2 15 22 11 13 2 9 22 2"/></svg>`,
+      x:(cls="h-6 w-6")=>`<svg class="${cls}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>`,
+      edit:(cls="h-4 w-4")=>`<svg class="${cls}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m3 21 3-1 12-12a2.12 2.12 0 0 0-3-3L3 17z"/><path d="M15 6l3 3"/></svg>`,
+      calendar:(cls="h-4 w-4")=>`<svg class="${cls}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18M5 6h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/></svg>`,
+      pin:(cls="h-5 w-5")=>`<svg class="${cls}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>`,
+      chevron:(cls="h-5 w-5")=>`<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>`
+    };
+
+    // ========= KEYS de storage =========
+    const LS_KEYS = { tryouts: "futr_tryouts", player: "futr_player_profile", scout: "futr_scout_profile" };
+
+    // ========= Mock inicial =========
+    const DEFAULT_PLAYER = { name:"Léo Santos", bio:"Atacante veloz com faro de gol, buscando oportunidade.", position:"Atacante", preferredFoot:"Direito", height:"182", age:"19", media:[
+      {url:"https://placehold.co/600x400/1f2937/4ade80?text=Gol+1"},
+      {url:"https://placehold.co/600x400/111827/4ade80?text=Drible"},
+      {url:"https://placehold.co/600x400/374151/4ade80?text=Cabeceio"}
+    ]};
+    const DEFAULT_SCOUT = { name:"Carlos Borges", club:"Real F.C", bio:"Olheiro com 10 anos de experiência.", contact:"carlos.borges@realfc.com" };
+    const DEFAULT_TRYOUTS = [
+      { id:"1", title:"Peneira Sub-20", clubName:"Real F.C", location:"CT Principal - Campo 1", city:"São Paulo - SP", date:"2025-08-25", time:"09:00 - 12:00", description:"Avaliação para todas as posições." },
+      { id:"2", title:"Avaliação de Talentos", clubName:"Barca F.C", location:"Estádio Municipal", city:"Rio de Janeiro - RJ", date:"2025-08-30", time:"14:00 - 17:00", description:"Foco em meias e atacantes." }
+    ];
+
+    // ========= Estado =========
+    let playerProfile = loadJSON(LS_KEYS.player)  || structuredClone(DEFAULT_PLAYER);
+    let scoutProfile  = loadJSON(LS_KEYS.scout)   || structuredClone(DEFAULT_SCOUT);
+    let tryouts       = loadJSON(LS_KEYS.tryouts) || structuredClone(DEFAULT_TRYOUTS);
+
+    const state = { role:"player", playerTab:"events", scoutTab:"tryouts", modal:null, chatSelectedId:null, filters:{ q:"", city:"", from:"", to:"" }, filtersOpen:true };
+
+    // ========= Utils persistência =========
+    function loadJSON(key){ try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : null; } catch { return null; } }
+    function saveJSON(key, value){ try { localStorage.setItem(key, JSON.stringify(value)); } catch {} }
+
+    // ========= Helpers UI =========
+    const fmtDate = (iso)=>{ try{ return new Date(iso).toLocaleDateString("pt-BR"); }catch{ return iso; } };
+    const setState = (patch)=>{ Object.assign(state, patch); render(); };
+
+    // ========= Componentes =========
+    const HeroBar = () => `
+      <header class="sticky top-0 z-50">
+        <div class="bg-gray-900/90 border-b border-white/5 backdrop-blur">
+          <div class="px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="text-emerald-400">${Icon.logo("h-8 w-8")}</span>
+              <div>
+                <h1 class="text-xl font-extrabold tracking-tight">FutRadar</h1>
+                <p class="text-xs text-gray-400">Encontre peneiras. Mostre seu talento.</p>
+              </div>
+            </div>
+            <nav class="flex items-center gap-2 text-sm">
+              <button data-action="switch-role" data-role="player" class="btn ${state.role==='player'?'btn-primary':'btn-secondary'}">Jogador</button>
+              <button data-action="switch-role" data-role="scout"  class="btn ${state.role==='scout'?'btn-primary':'btn-secondary'}">Olheiro</button>
+            </nav>
+          </div>
+        </div>
+      </header>
+    `;
+
+    const PlayerProfileCard = p => `
+      <div class="section mb-4">
+        <div class="flex items-start justify-between">
+          <div>
+            <h3 class="text-2xl font-extrabold">${p.name}</h3>
+            <p class="text-gray-300 mt-1">${p.bio}</p>
+          </div>
+        </div>
+        <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
+          <div class="card"><span class="label" style="margin-bottom:0">Posição</span><p class="text-emerald-300 font-semibold">${p.position}</p></div>
+          <div class="card"><span class="label" style="margin-bottom:0">Pé</span><p class="text-emerald-300 font-semibold">${p.preferredFoot}</p></div>
+          <div class="card"><span class="label" style="margin-bottom:0">Altura</span><p class="text-emerald-300 font-semibold">${p.height} cm</p></div>
+          <div class="card"><span class="label" style="margin-bottom:0">Idade</span><p class="text-emerald-300 font-semibold">${p.age} anos</p></div>
+        </div>
+      </div>`;
+
+    const PlayerMedia = media => `
+      <div class="section mb-4">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-2xl font-extrabold">Mídias</h3>
+          <button data-action="add-media" class="btn btn-secondary">${Icon.plus()} Add Mídia</button>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          ${media.map((m,i)=>`<div class="aspect-video bg-gray-700 rounded-2xl overflow-hidden"><img src="${m.url}" alt="Mídia ${i+1}" class="w-full h-full object-cover"></div>`).join("")}
+        </div>
+      </div>`;
+
+    const FiltersBar = () => `
+      <div class="section mb-4 space-y-3">
+        <div class="filters-header">
+          <h3>Filtros</h3>
+          <button data-action="toggle-filters" class="btn btn-secondary" aria-expanded="${state.filtersOpen}">
+            <span>Mostrar/ocultar</span>
+            ${Icon.chevron(`chev ${state.filtersOpen? 'rotate':''}`)}
+          </button>
+        </div>
+        ${state.filtersOpen ? `
+        <div class="grid grid-cols-1 gap-3">
+          <div>
+            <label class="label">Pesquisar (título, clube, local)</label>
+            <div class="relative">
+              <input id="f-q" class="input pl-10" type="text" placeholder="ex.: Real, Estádio, Sub-20" value="${state.filters.q}">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-300">🔎</span>
+            </div>
+          </div>
+          <div>
+            <label class="label">Cidade/UF</label>
+            <input id="f-city" class="input" type="text" placeholder="ex.: São Paulo - SP" value="${state.filters.city}">
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="label">De</label>
+              <input id="f-from" class="input" type="date" value="${state.filters.from}">
+            </div>
+            <div>
+              <label class="label">Até</label>
+              <input id="f-to" class="input" type="date" value="${state.filters.to}">
+            </div>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <button data-action="apply-filters" class="btn btn-primary">Aplicar filtros</button>
+          <button data-action="clear-filters" class="btn btn-secondary">Limpar</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <button class="chip" data-action="quick-range" data-range="today">Hoje</button>
+          <button class="chip" data-action="quick-range" data-range="week">Esta semana</button>
+          <button class="chip" data-action="quick-range" data-range="month">Próximo mês</button>
+          <button class="chip" data-action="quick-clear">Limpar datas</button>
+        </div>
+        `: ''}
+      </div>
+    `;
+
+    const TryoutsList = (list, canEdit=false) => `
+      <div class="section">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-2xl font-extrabold">Peneiras</h3>
+        </div>
+        <div class="space-y-3">
+          ${list.length? list.map(t=>`
+            <div class="card">
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex-1 cursor-pointer" data-action="open-tryout" data-id="${t.id}">
+                  <div class="flex items-center gap-2">
+                    <h4 class="font-bold text-emerald-300 text-lg">${t.title}</h4>
+                    <span class="badge">${t.clubName}</span>
+                  </div>
+                  <p class="text-sm text-gray-200 flex items-center gap-2 mt-1">${Icon.pin("h-4 w-4")} ${t.location} — ${t.city}</p>
+                  <div class="mt-1 text-xs text-gray-300 inline-flex items-center gap-2">${Icon.calendar()} <span>${fmtDate(t.date)} • ${t.time}</span></div>
+                </div>
+              </div>
+              ${canEdit ? `
+              <div class="card-actions">
+                <button class="btn btn-secondary" data-action="edit-tryout" data-id="${t.id}">${Icon.edit("h-4 w-4")} Editar</button>
+                <button class="btn btn-danger" data-action="delete-tryout" data-id="${t.id}">Excluir</button>
+              </div>` : ''}
+            </div>
+          `).join("") : `<div class="text-center py-6"><p class="text-gray-400">Nenhum resultado com os filtros atuais.</p><p class="text-sm text-gray-500 mt-1">Tente limpar filtros ou escolher outro período.</p></div>`}
+        </div>
+      </div>
+    `;
+
+    const Modal = (title, bodyHtml) => `
+      <div class="fixed inset-0 bg-black/70 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+        <div class="bg-gray-900 rounded-3xl shadow-2xl w-full max-w-[430px] max-h-[90vh] overflow-y-auto border border-emerald-500/20">
+          <div class="p-6 relative">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-2xl font-extrabold">${title}</h3>
+              <button data-action="close-modal" class="text-gray-400 hover:text-white" aria-label="Fechar">${Icon.x()}</button>
+            </div>
+            ${bodyHtml}
+          </div>
+        </div>
+      </div>
+    `;
+
+    const TryoutDetailModal = t => Modal(`${t.title} — ${t.clubName}`, `
+      <div class="space-y-4 text-gray-200">
+        <p><strong>Data:</strong> ${fmtDate(t.date)} — <strong>Horário:</strong> ${t.time}</p>
+        <p><strong>Local:</strong> ${t.location}, ${t.city}</p>
+        <div class="border-t border-gray-700 pt-4 mt-4">
+          <p class="font-semibold text-white mb-2">Informações</p>
+          <p>${t.description}</p>
+        </div>
+      </div>
+    `);
+
+    const CreateTryoutModal = (existing = null) => {
+      const isEdit = !!existing;
+      const data = existing || { title:"", clubName:"", city:"", location:"", date:"", time:"", description:"" };
+      const idAttr = isEdit ? ` data-id="${existing.id}"` : "";
+      return Modal(isEdit ? "Editar Peneira" : "Criar Nova Peneira", `
+        <form class="space-y-3" data-form="tryout"${idAttr}>
+          <div><label class="label">Título</label><input class="input" name="title" value="${data.title}" required></div>
+          <div class="grid grid-cols-1 gap-3">
+            <div><label class="label">Clube</label><input class="input" name="clubName" value="${data.clubName}" required></div>
+            <div><label class="label">Cidade/UF</label><input class="input" name="city" value="${data.city}" placeholder="ex.: São Paulo - SP" required></div>
+          </div>
+          <div><label class="label">Local (estádio/CT)</label><input class="input" name="location" value="${data.location}" required></div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="label">Data</label><input class="input" name="date" type="date" value="${data.date}" required></div>
+            <div><label class="label">Horário</label><input class="input" name="time" type="text" placeholder="14:00 - 17:00" value="${data.time}" required></div>
+          </div>
+          <div><label class="label">Descrição</label><textarea class="input" name="description" rows="3" required>${data.description}</textarea></div>
+          <div class="grid grid-cols-2 gap-2 pt-2">
+            <button type="button" data-action="close-modal" class="btn btn-secondary">Cancelar</button>
+            <button type="submit" class="btn btn-primary">${isEdit ? "Salvar" : "Criar"}</button>
+          </div>
+        </form>
+      `);
+    };
+
+    const EditPlayerModal = () => Modal("Editar Perfil do Jogador", `
+      <form class="space-y-3" data-form="player">
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="label">Nome</label><input class="input" name="name" value="${playerProfile.name}" required></div>
+          <div><label class="label">Posição</label><input class="input" name="position" value="${playerProfile.position}" required></div>
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+          <div><label class="label">Pé</label><input class="input" name="preferredFoot" value="${playerProfile.preferredFoot}" required></div>
+          <div><label class="label">Altura (cm)</label><input class="input" name="height" value="${playerProfile.height}" required></div>
+          <div><label class="label">Idade</label><input class="input" name="age" value="${playerProfile.age}" required></div>
+        </div>
+        <div><label class="label">Bio</label><textarea class="input" name="bio" rows="3" required>${playerProfile.bio}</textarea></div>
+        <div class="grid grid-cols-2 gap-2 pt-2">
+          <button type="button" data-action="close-modal" class="btn btn-secondary">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar</button>
+        </div>
+      </form>
+    `);
+
+    const EditScoutModal = () => Modal("Editar Perfil do Olheiro", `
+      <form class="space-y-3" data-form="scout">
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="label">Nome</label><input class="input" name="name" value="${scoutProfile.name}" required></div>
+          <div><label class="label">Clube</label><input class="input" name="club" value="${scoutProfile.club}" required></div>
+        </div>
+        <div><label class="label">Bio</label><textarea class="input" name="bio" rows="3" required>${scoutProfile.bio}</textarea></div>
+        <div><label class="label">Contato</label><input class="input" name="contact" value="${scoutProfile.contact}" required></div>
+        <div class="grid grid-cols-2 gap-2 pt-2">
+          <button type="button" data-action="close-modal" class="btn btn-secondary">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar</button>
+        </div>
+      </form>
+    `);
+
+    // ========= Telas =========
+    const filterTryouts = () => {
+      const {q, city, from, to} = state.filters;
+      return tryouts.filter(t=>{
+        const text = (t.title+" "+t.clubName+" "+t.location+" "+t.city).toLowerCase();
+        const okQ = q ? text.includes(q.toLowerCase()) : true;
+        const okCity = city ? (t.city||"").toLowerCase().includes(city.toLowerCase()) : true;
+        const d = new Date(t.date).setHours(0,0,0,0);
+        const okFrom = from ? d >= new Date(from).setHours(0,0,0,0) : true;
+        const okTo = to ? d <= new Date(to).setHours(0,0,0,0) : true;
+        return okQ && okCity && okFrom && okTo;
+      });
+    };
+
+    const PlayerEventsScreen = () => `
+      <div class="space-y-4">
+        <h2 class="text-2xl font-extrabold">Eventos e Peneiras</h2>
+        ${FiltersBar()}
+        ${TryoutsList(filterTryouts(), false)}
+      </div>
+    `;
+
+    const PlayerProfileScreen = () => `
+      <div class="space-y-4">
+        ${PlayerProfileCard(playerProfile)}
+        <button data-action="edit-player" class="btn btn-primary w-full flex items-center justify-center gap-2">${Icon.edit()} Editar Perfil</button>
+        ${PlayerMedia(playerProfile.media)}
+      </div>
+    `;
+
+    const ChatScreen = (role) => {
+      const contacts = role==="player" ? [{id:"s1", name:scoutProfile.name, club:scoutProfile.club}] : [{id:"p1", name:playerProfile.name, position:playerProfile.position}];
+      const selected = contacts.find(c=>c.id===state.chatSelectedId) || contacts[0];
+      state.chatSelectedId = selected?.id;
+      return `
+        <div class="flex flex-col h-[calc(100vh-200px)]">
+          <h2 class="text-2xl font-extrabold mb-4">Conversas</h2>
+          <div class="flex flex-grow bg-gray-900/70 rounded-2xl overflow-hidden border border-gray-800">
+            <div class="w-2/5 border-r border-gray-800">
+              ${contacts.map(c=>`
+                <div class="p-4 cursor-pointer ${selected?.id===c.id?'bg-emerald-500/15 border-l-4 border-emerald-500':'hover:bg-gray-800'}" data-action="select-chat" data-id="${c.id}">
+                  <p class="font-bold">${c.name}</p>
+                  <p class="text-xs text-gray-400">${c.club||c.position||""}</p>
+                </div>`).join("")}
+            </div>
+            <div class="w-3/5 flex flex-col">
+              <div class="p-4 flex-grow overflow-y-auto space-y-2">
+                <div class="text-right"><span class="inline-block bg-emerald-600 text-white text-sm rounded-2xl px-3 py-2">Olá! Vi seu perfil.</span></div>
+                <div class="text-left"><span class="inline-block bg-gray-800 text-white text-sm rounded-2xl px-3 py-2">Obrigado pelo contato.</span></div>
+              </div>
+              <div class="p-3 bg-gray-950 flex items-center gap-2">
+                <input type="text" placeholder="Digite sua mensagem..." class="input rounded-full flex-1" />
+                <button class="btn btn-primary rounded-full" aria-label="Enviar">${Icon.send()}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    };
+
+    const ScoutDashboard = () => `
+      <div class="space-y-4">
+        <h2 class="text-2xl font-extrabold">Jogadores na Plataforma</h2>
+        <div class="section mb-2 grid grid-cols-1 gap-3">
+          <input type="text" placeholder="Posição (ex.: zagueiro)" class="input">
+          <input type="number" placeholder="Idade" class="input">
+          <input type="text" placeholder="Localização" class="input">
+        </div>
+        <div class="space-y-3">
+          <div class="card flex items-center gap-4">
+            <div class="w-12 h-12 rounded-full bg-emerald-800/30 flex items-center justify-center">👤</div>
+            <div>
+              <p class="font-bold">${playerProfile.name}</p>
+              <p class="text-sm text-emerald-300">${playerProfile.position}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const ScoutTryoutsScreen = () => `
+      <div class="space-y-4">
+        <div class="flex flex-col gap-3">
+          <h2 class="text-2xl font-extrabold">Gerenciar Peneiras</h2>
+          <button data-action="create-tryout" class="btn btn-primary w-full flex items-center justify-center gap-2">${Icon.plus()} Criar</button>
+        </div>
+        ${FiltersBar()}
+        ${TryoutsList(filterTryouts(), true)}
+      </div>
+    `;
+
+    const ScoutProfileScreen = () => `
+      <div class="space-y-4">
+        <div class="section">
+          <div class="flex items-start justify-between">
+            <div>
+              <h3 class="text-2xl font-extrabold">${scoutProfile.name}</h3>
+              <p class="text-emerald-300 font-semibold">${scoutProfile.club}</p>
+            </div>
+          </div>
+          <p class="text-gray-300 mt-2">${scoutProfile.bio}</p>
+          <div class="mt-4 border-t border-gray-800 pt-4">
+            <p class="font-semibold text-gray-300">Contato</p>
+            <p class="text-emerald-300">${scoutProfile.contact}</p>
+          </div>
+        </div>
+        <button data-action="edit-scout" class="btn btn-primary w-full flex items-center justify-center gap-2">${Icon.edit()} Editar Perfil</button>
+      </div>
+    `;
+
+    // ========= Bottom Nav =========
+    const PlayerBottomNav = () => `
+      <div class="nav-fixed bg-gray-900/95 h-18 flex justify-around items-center border-t border-emerald-500/20 backdrop-blur">
+        <button data-action="tab" data-scope="player" data-tab="events"  class="px-2 py-3 ${state.playerTab==='events' ? 'text-emerald-400' : 'text-gray-400 hover:text-white'} flex flex-col items-center">${Icon.calendar()}<span class="text-xs mt-1">Eventos</span></button>
+        <button data-action="tab" data-scope="player" data-tab="profile" class="px-2 py-3 ${state.playerTab==='profile' ? 'text-emerald-400' : 'text-gray-400 hover:text-white'} flex flex-col items-center">${Icon.user()}<span class="text-xs mt-1">Perfil</span></button>
+        <button data-action="tab" data-scope="player" data-tab="chat"    class="px-2 py-3 ${state.playerTab==='chat' ? 'text-emerald-400' : 'text-gray-400 hover:text-white'} flex flex-col items-center">${Icon.chat()}<span class="text-xs mt-1">Chat</span></button>
+      </div>
+    `;
+    const ScoutBottomNav = () => `
+      <div class="nav-fixed bg-gray-900/95 h-18 flex justify-around items-center border-t border-emerald-500/20 backdrop-blur">
+        <button data-action="tab" data-scope="scout" data-tab="dashboard" class="px-2 py-3 ${state.scoutTab==='dashboard' ? 'text-emerald-400' : 'text-gray-400 hover:text-white'} flex flex-col items-center">${Icon.eye()}<span class="text-xs mt-1">Jogadores</span></button>
+        <button data-action="tab" data-scope="scout" data-tab="tryouts"   class="px-2 py-3 ${state.scoutTab==='tryouts' ? 'text-emerald-400' : 'text-gray-400 hover:text-white'} flex felx-col items-center">${Icon.ball()}<span class="text-xs mt-1">Peneiras</span></button>
+        <button data-action="tab" data-scope="scout" data-tab="profile"   class="px-2 py-3 ${state.scoutTab==='profile' ? 'text-emerald-400' : 'text-gray-400 hover:text-white'} flex flex-col items-center">${Icon.user()}<span class="text-xs mt-1">Perfil</span></button>
+        <button data-action="tab" data-scope="scout" data-tab="chat"      class="px-2 py-3 ${state.scoutTab==='chat' ? 'text-emerald-400' : 'text-gray-400 hover:text-white'} flex flex-col items-center">${Icon.chat()}<span class="text-xs mt-1">Chat</span></button>
+      </div>
+    `;
+
+    // ========= Render =========
+    function render(){
+      const root = document.getElementById("app");
+      root.innerHTML = `
+        ${HeroBar()}
+        <main class="flex-1 p-4 pb-24 space-y-4 text-[16px] leading-relaxed">
+          ${state.role === "player" ? `
+            <div class="flex flex-col h-full">
+              ${state.playerTab==="events"? PlayerEventsScreen() : ""}
+              ${state.playerTab==="profile"? PlayerProfileScreen() : ""}
+              ${state.playerTab==="chat"? ChatScreen("player") : ""}
+              ${PlayerBottomNav()}
+            </div>
+          ` : `
+            <div class="flex flex-col h-full">
+              ${state.scoutTab==="dashboard"? ScoutDashboard() : ""}
+              ${state.scoutTab==="tryouts"? ScoutTryoutsScreen() : ""}
+              ${state.scoutTab==="profile"? ScoutProfileScreen() : ""}
+              ${state.scoutTab==="chat"? ChatScreen("scout") : ""}
+              ${ScoutBottomNav()}
+            </div>
+          `}
+        </main>
+        ${state.modal ? state.modal : ""}
+        <div id="toaster" class="fixed top-4 right-4 space-y-2 z-[60]"></div>
+      `;
+    }
+
+    // ========= Toast =========
+    function toast(msg, type="success"){ const t = document.getElementById("toaster"); const el = document.createElement("div"); el.className = `px-4 py-2 rounded-xl text-sm ${type==='success'?'bg-emerald-600':'bg-red-600'}`; el.textContent = msg; t.appendChild(el); setTimeout(()=>{ el.remove(); }, 2500); }
+
+    // ========= Eventos globais =========
+    document.addEventListener("click", (ev)=>{
+      const btn = ev.target.closest("[data-action]");
+      if(!btn) return;
+      const action = btn.getAttribute("data-action");
+
+      if(action==="switch-role"){ setState({ role: btn.getAttribute("data-role") }); }
+
+      if(action==="tab"){
+        const scope = btn.getAttribute("data-scope");
+        const tab = btn.getAttribute("data-tab");
+        if(scope==="player") setState({ playerTab: tab });
+        if(scope==="scout")  setState({ scoutTab: tab });
+      }
+
+      if(action==="toggle-filters"){ setState({ filtersOpen: !state.filtersOpen }); }
+
+      if(action==="open-tryout"){ const t = tryouts.find(x=>x.id===btn.getAttribute("data-id")); if(t) setState({ modal: TryoutDetailModal(t) }); }
+      if(action==="create-tryout"){ setState({ modal: CreateTryoutModal() }); }
+      if(action==="edit-tryout"){ const t = tryouts.find(x=>x.id===btn.getAttribute("data-id")); if(t) setState({ modal: CreateTryoutModal(t) }); }
+      if(action==="delete-tryout"){ const id = btn.getAttribute("data-id"); if(confirm("Tem certeza que deseja excluir esta peneira?")){ tryouts = tryouts.filter(t=>t.id!==id); saveJSON(LS_KEYS.tryouts, tryouts); render(); toast("Peneira excluída!"); } }
+
+      if(action==="close-modal"){ setState({ modal: null }); }
+
+      if(action==="select-chat"){ setState({ chatSelectedId: btn.getAttribute("data-id") }); }
+
+      if(action==="edit-player"){ setState({ modal: EditPlayerModal() }); }
+      if(action==="edit-scout"){ setState({ modal: EditScoutModal() }); }
+
+      if(action==="apply-filters"){ state.filters = { q: document.getElementById("f-q")?.value || "", city: document.getElementById("f-city")?.value || "", from: document.getElementById("f-from")?.value || "", to: document.getElementById("f-to")?.value || "" }; render(); }
+      if(action==="clear-filters"){ state.filters = { q:"", city:"", from:"", to:"" }; render(); }
+
+      if(action==="quick-range"){ const r = btn.getAttribute("data-range"); const today = new Date(); const pad = (n)=> String(n).padStart(2,'0'); const iso = (d)=> `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; const start = new Date(today); const end = new Date(today); if(r==='week'){ end.setDate(end.getDate()+7); } if(r==='month'){ end.setMonth(end.getMonth()+1); } state.filters.from = iso(start); state.filters.to = iso(end); render(); }
+      if(action==="quick-clear"){ state.filters.from = ""; state.filters.to = ""; render(); }
+    });
+
+    document.addEventListener("submit", (e) => {
+      const form = e.target; if (!form.matches("[data-form]")) return; e.preventDefault();
+      const kind = form.getAttribute("data-form"); const fd = new FormData(form); const data = Object.fromEntries(fd.entries());
+      if (kind === "tryout") { const editId = form.getAttribute("data-id"); if (editId) { const idx = tryouts.findIndex(t => t.id === editId); if (idx > -1) tryouts[idx] = { ...tryouts[idx], ...data }; toast("Peneira atualizada!"); } else { data.id = Date.now().toString(); tryouts.unshift(data); toast("Peneira criada!"); } saveJSON(LS_KEYS.tryouts, tryouts); state.modal = null; render(); return; }
+      if (kind === "player") { Object.assign(playerProfile, data); saveJSON(LS_KEYS.player, playerProfile); state.modal = null; render(); toast("Perfil do jogador salvo!"); return; }
+      if (kind === "scout") { Object.assign(scoutProfile, data); saveJSON(LS_KEYS.scout, scoutProfile); state.modal = null; render(); toast("Perfil do olheiro salvo!"); return; }
+    });
+
+    // Inicializa
+    render();
+  </script>
+</body>
+</html>
